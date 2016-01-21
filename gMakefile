@@ -1,0 +1,87 @@
+
+
+DEFINES=
+LIBDIR=
+LIBS=`basecode-config --cclibs`
+INCLUDE=`basecode-config --ccflags`
+
+
+
+#this is the same name as the TARGET variable so we can do "$(TARGET)_OBJS"
+csvtool_HEADERS=csvtool.h\
+								sqlparse.h
+csvtool_OBJS=	csvtool.o\
+								sqlparse.o
+
+
+CC=gcc
+CXX=g++
+
+# bsd has gfilt wrapper around stlfilt, why?
+GFILT_TEST=$(shell which gfilt)
+ifeq ($(GFILT_TEST),)
+	CXX:=g++
+else
+	CXX:=gfilt /cand:L -banner:N
+endif
+
+
+TARGET=csvtool
+
+TARGETS=csvtool
+
+RELEASE=
+# make DEBUG=1 to use debugging!!!!
+# make D=1 to use debugging!!!!
+# make D=1 to use debugging!!!!
+# make D=1 to use debugging!!!!
+ifeq ($(D),1)
+	RELEASE:=-ggdb3
+endif
+
+ifeq ($(O),1)
+	RELEASE:=-O
+endif
+
+CCFLAGS=$(RELEASE)
+CFLAGS=$(RELEASE)
+
+help:
+	# the @ is like "echo off" in dos, the command is not printed, just output
+	@echo ""
+	@echo "	use: make D=1 to enable debugging!"
+	@echo ""
+
+debug:
+	make all
+
+
+all: $(TARGETS)
+
+$(TARGET): $($(TARGET)_OBJS) $($(TARGET)_HEADERS)
+	$(CXX) $(DEFINES) $(CCFLAGS) -o $@ $($(TARGET)_OBJS) $(LIBDIR) $(LIBS)
+
+.cpp.o:
+	$(CXX) $(DEFINES) $(CCFLAGS) $(INCLUDE) -c $<
+.cc.o:
+	$(CXX) $(DEFINES) $(CCFLAGS) $(INCLUDE) -c $<
+.c.o:
+	$(CC) $(DEFINES) $(CFLAGS) $(INCLUDE) -c $<
+
+
+
+world:
+	gmake clean libs all
+
+clean:
+	rm -f *.o *.core core $(TARGETS) *.class
+
+
+
+#use phony for all commands we create so that if any files
+#ever exist with the same name as the commands, make will
+#not become confused.
+.PHONY: all libs clean world
+
+
+
