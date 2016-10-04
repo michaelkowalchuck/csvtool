@@ -237,9 +237,9 @@ void Demo::run()
 	s += "csvtool transpose tt.csv";
 	s += "\n";
 	s += "\n";
-	s += "csvtool join AaboveB a.csv b.csv";
+	s += "csvtool join AaboveB a.csv b.csv [fileC.csv]";
 	s += "\n";
-	s += "csvtool join AnexttoB a.csv b.csv";
+	s += "csvtool join AnexttoB a.csv b.csv [fileC.csv]";
 	s += "\n";
 	s += "\n";
 	s += "csvtool rotate_right tt.csv";
