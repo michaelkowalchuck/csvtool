@@ -1,4 +1,7 @@
 
+// Michael Kowalchuck
+
+
 
 #ifndef CSVTOOL_HH_HH_H
 #define CSVTOOL_HH_HH_H
@@ -87,12 +90,15 @@ class SimpleFileTool : public Tool
 	SimpleFileTool();
 	virtual void operate_on_input(Input &input,Output &output);
 	void set_input(Input *input);
+	void set_inputs(const std::vector<Input*> &inputs);
+	const std::vector<Input*>& get_inputs()const;
 	void set_output(Output *output);
 	void run();
 	virtual ~SimpleFileTool(); // TODO I remember something special about destructors being virtual.
 
 	private:
 		Input *_input; // these should have been malloc'd outside and passed in
+		std::vector<Input*> _inputs; // same as these
 		Output *_output; // they are delete()'d in destructor here
 };
 
@@ -216,21 +222,17 @@ class RemoveEmptyCellAtRowEnd: public SimpleFileTool
 class JoinAnexttoB: public SimpleFileTool
 {
 	public:
-	JoinAnexttoB(const std::string &ifname_a);
+	JoinAnexttoB();
 	void operate_on_input(Input &input,Output &output);
 	private:
-
-		Input _input_a;
 };
 
 class JoinAaboveB: public SimpleFileTool
 {
 	public:
-	JoinAaboveB(const std::string &ifname_a);
+	JoinAaboveB();
 	void operate_on_input(Input &input,Output &output);
 	private:
-
-		Input _input_a;
 };
 
 class Transpose: public SimpleFileTool

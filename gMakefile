@@ -16,11 +16,13 @@ csvtool_OBJS=	csvtool.o\
 
 CC=gcc
 CXX=g++
+CC=clang
+CXX=clang++
 
 # bsd has gfilt wrapper around stlfilt, why?
 GFILT_TEST=$(shell which gfilt)
 ifeq ($(GFILT_TEST),)
-	CXX:=g++
+	CXX:=clang++
 else
 	CXX:=gfilt /cand:L -banner:N
 endif

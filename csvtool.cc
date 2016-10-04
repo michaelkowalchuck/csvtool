@@ -1,4 +1,5 @@
 
+// Michael Kowalchuck
 
 
 
@@ -266,12 +267,25 @@ SimpleFileTool::~SimpleFileTool()
 {
 // TODO close the input???
 	delete _input;
+	for(int i=0;i<_inputs.size();++i) {
+		delete _inputs[i];
+	}
 	delete _output;
 }
 
 void SimpleFileTool::set_input(Input *input)
 {
 	_input = input;
+}
+
+void SimpleFileTool::set_inputs(const std::vector<Input*> &inputs)
+{
+	_inputs = inputs;
+}
+
+const std::vector<Input*>& SimpleFileTool::get_inputs()const
+{
+	return _inputs;
 }
 
 void SimpleFileTool::set_output(Output *output)
@@ -775,40 +789,32 @@ void RemoveEmptyCellAtRowEnd::operate_on_input(Input &input,Output &output)
 }
 
 
-JoinAnexttoB::JoinAnexttoB(const std::string &ifname_a):_input_a(ifname_a)
+JoinAnexttoB::JoinAnexttoB()
 {
 }
 
 void JoinAnexttoB::operate_on_input(Input &input_b,Output &output)
 {
 	std::vector<std::string> cells_a;
-	std::vector<std::string> cells_b;
 
 	bool done = false;
 	while(!done) {
 
-		bool av = _input_a.get_next_row(cells_a);
-		bool bv = input_b.get_next_row(cells_b);
-
-		if(av) {
-			for(int i=0;i<cells_a.size();++i) {
-				output.append(cells_a[i]);
+		for(int i=0;i<get_inputs().size();++i) {
+			bool av = get_inputs()[i]->get_next_row(cells_a);
+			if(av) {
+				for(int j=0;j<cells_a.size();++j) {
+					output.append(cells_a[j]);
+				}
+			} else {
+				done = true;
 			}
 		}
-		if(bv) {
-			for(int i=0;i<cells_b.size();++i) {
-				output.append(cells_b[i]);
-			}
-			output.newline();
-		}
-
-		if(!av && !bv)
-			done = true;
 	}
 }
 
 
-JoinAaboveB::JoinAaboveB(const std::string &ifname_a):_input_a(ifname_a)
+JoinAaboveB::JoinAaboveB()
 {
 }
 
@@ -816,20 +822,14 @@ void JoinAaboveB::operate_on_input(Input &input_b,Output &output)
 {
 	std::vector<std::string> cells;
 
-	while(_input_a.get_next_row(cells)) {
+	for(int i=0;i<get_inputs().size();++i) {
+		while(get_inputs()[i]->get_next_row(cells)) {
 
-		for(int i=0;i<cells.size();++i) {
-			output.append(cells[i]);
+			for(int j=0;j<cells.size();++j) {
+				output.append(cells[j]);
+			}
+			output.newline();
 		}
-		output.newline();
-	}
-
-	while(input_b.get_next_row(cells)) {
-
-		for(int i=0;i<cells.size();++i) {
-			output.append(cells[i]);
-		}
-		output.newline();
 	}
 }
 
@@ -1567,32 +1567,34 @@ DDDD
 
 	} else if(params[0] == "join") {
 
-		if(params.size()!=4) {
+		if(params.size()<4) {
 			std::cout << "not enough params here." << std::endl;
-			std::cout << "join AnexttoB fileA.csv fileB.csv" << std::endl;
-			std::cout << "join AaboveB fileA.csv fileB.csv" << std::endl;
+			std::cout << "join AnexttoB fileA.csv fileB.csv [fileC.csv]" << std::endl;
+			std::cout << "join AaboveB fileA.csv fileB.csv [fileC.csv]" << std::endl;
 			exit(1);
 		}
 
-		std::string ifname_b = params[3];
-		csvtool::Input *input_b = new csvtool::Input(ifname_b); // MALLOC HERE
+		std::vector<std::string> ifnames;
+		std::vector<csvtool::Input*> inputs;
 
-		std::string ifname_a = params[2];
+		for(int j=2;j<params.size();++j) {
+			ifnames.push_back(params[j]);
+			inputs.push_back(new csvtool::Input(params[j])); // MALLOC HERE
+		}
 
 		if(params[1]=="AnexttoB") {
 
-			csvtool::JoinAnexttoB *t  = new csvtool::JoinAnexttoB(ifname_a);
-			t->set_input(input_b);
+			csvtool::JoinAnexttoB *t  = new csvtool::JoinAnexttoB();
+			t->set_inputs(inputs);
 			t->set_output(output);
 			return t;
 
 		} else if(params[1]=="AaboveB") {
 
-			csvtool::JoinAaboveB *t  = new csvtool::JoinAaboveB(ifname_a);
-			t->set_input(input_b);
+			csvtool::JoinAaboveB *t  = new csvtool::JoinAaboveB();
+			t->set_inputs(inputs);
 			t->set_output(output);
 			return t;
-
 		}
 
 	} else if(params[0] == "rotate_right") {

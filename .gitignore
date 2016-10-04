@@ -1,4 +1,6 @@
 
 csvtool
 *.o
+*.csv
+NativeLog.txt
 
