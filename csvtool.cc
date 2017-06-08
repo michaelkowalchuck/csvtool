@@ -15,7 +15,7 @@
 #include <cctype>
 #include <new>
 
-
+#include "bc_cc.h"
 #include "csvtool.h"
 #include "sqlparse.h"
 
@@ -38,6 +38,7 @@ namespace csvtool {
 
 HeaderIndex::HeaderIndex(const std::string &raw)
 {
+
 	if(bc::is_integer(raw)) {
 
 		_index = atoi(raw.c_str());
@@ -120,9 +121,10 @@ void Output::newline()
 }
 
 
-Input::Input(const std::string &ifname):_file(ifname)
+Input::Input(const std::string &ifname,const std::string &delim):_file(ifname)
 {
-	_delim = ",";
+	//_delim = ",";
+	_delim = delim;
 	_file.open_readonly_or_die();
 }
 
@@ -234,6 +236,9 @@ void Demo::run()
 	s += "csvtool rm_trailing_commas tt.csv";
 	s += "\n";
 	s += "\n";
+	s += "csvtool rm_surrounding_quotes tt.csv";
+	s += "\n";
+	s += "\n";
 	s += "csvtool transpose tt.csv";
 	s += "\n";
 	s += "\n";
@@ -248,6 +253,9 @@ void Demo::run()
 	s += "\n";
 	s += "\n";
 	s += "csvtool is_square tt.csv";
+	s += "\n";
+	s += "\n";
+	s += "use -tab if your input is tsv";
 	s += "\n";
 	s += "\n";
 
@@ -352,6 +360,7 @@ void SqlInsertBuilder::operate_on_input(Input &input,Output &output)
 
 ColCutter::ColCutter(const std::vector<HeaderIndex> &indices)
 {
+	_trim_quotes = false;
 	_indices = indices;
 }
 
@@ -391,7 +400,14 @@ void ColCutter::operate_on_input(Input &input,Output &output)
 
 			for(int i=0;i<_indices.size();++i) {
 
-				output.append(cells[_indices[i].get_index()]);
+				std::string v = cells[_indices[i].get_index()];
+
+				v = bc::remove_surrounding_whitespace(v);
+
+				if(_trim_quotes)
+					v = bc::trim_quotes(v);
+
+				output.append(v);
 
 			}
 		}
@@ -400,6 +416,11 @@ void ColCutter::operate_on_input(Input &input,Output &output)
 
 	}
 
+}
+
+void ColCutter::set_trim_quotes(bool trim_quotes)
+{
+	_trim_quotes = trim_quotes;
 }
 
 RowCutter::RowCutter(const std::vector<HeaderIndex> &indices)
@@ -788,6 +809,60 @@ void RemoveEmptyCellAtRowEnd::operate_on_input(Input &input,Output &output)
 
 }
 
+RemoveSurroundingQuotes::RemoveSurroundingQuotes()
+{
+
+}
+
+void RemoveSurroundingQuotes::operate_on_input(Input &input,Output &output)
+{
+
+	std::vector<std::string> cells;
+
+	while(input.get_next_row(cells)) {
+
+/*
+		int index = cells.size()-1;
+		while(cells[index]=="") {
+			cells.erase(cells.begin()+index);
+			index = cells.size()-1;
+			if(cells.size()==0)
+				break;
+		}
+*/
+
+		for(int i=0;i<cells.size();++i) {
+
+			if(cells[i].size()) {
+
+				if(cells[i][0] == '\"') {
+
+					cells[i] = cells[i].substr(1);
+
+					if(cells[i].size()) {
+
+						if(cells[i][cells[i].size()-1] == '\"') {
+
+							cells[i] = cells[i].substr(0,cells[i].size()-1);
+
+						}
+
+					}
+
+				}
+
+			}
+
+			output.append(cells[i]);
+		}
+		output.newline();
+
+	}
+
+}
+
+
+
 
 JoinAnexttoB::JoinAnexttoB()
 {
@@ -810,6 +885,7 @@ void JoinAnexttoB::operate_on_input(Input &input_b,Output &output)
 				done = true;
 			}
 		}
+		output.newline();
 	}
 }
 
@@ -1291,6 +1367,18 @@ csvtool::Tool* ToolFactory(int argc,char **argv)
 		params.push_back(argv[i]);
 	}
 
+	std::string delim = ",";
+
+	if(params.size()>0) {
+		if(std::string(params[0]) == "-tab") {
+			delim = "\t";
+			params.erase(params.begin());
+		}
+	}
+
+
+
+
 	if(params.size()==0 || params[0] == "demo") {
 
 		return new csvtool::Demo();
@@ -1313,10 +1401,13 @@ csvtool::Tool* ToolFactory(int argc,char **argv)
 			exit(1);
 		}
 
-		std::string ifname = params[params.size()-1];
-		csvtool::Input *input = new csvtool::Input(ifname); // MALLOC HERE
+		//std::string ifname = params[params.size()-1];
+		//csvtool::Input *input = new csvtool::Input(ifname); // MALLOC HERE
 
 		if(params[1] == "count") {
+
+			std::string ifname = params[params.size()-1];
+			csvtool::Input *input = new csvtool::Input(ifname,delim); // MALLOC HERE
 
 			if(params[0]=="col") {
 				csvtool::ColCount *t = new csvtool::ColCount();
@@ -1336,6 +1427,9 @@ csvtool::Tool* ToolFactory(int argc,char **argv)
 				std::cout << "incorrect number of params" << std::endl;
 				exit(1);
 			}
+
+			std::string ifname = params[params.size()-1];
+			csvtool::Input *input = new csvtool::Input(ifname,delim); // MALLOC HERE
 
 			if(params[0] == "col") {
 				csvtool::RemoveEmptyCols *t = new csvtool::RemoveEmptyCols();
@@ -1368,10 +1462,26 @@ csvtool::Tool* ToolFactory(int argc,char **argv)
 				indices.push_back(HeaderIndex(toks[j]));
 			}
 
+			std::string ifname;
+			csvtool::Input *input;
+
+			ifname = params[3];
+			input = new csvtool::Input(ifname,delim); // MALLOC HERE
+
+			bool trim_quotes = false;
+
+			if(params.size() == 5) {
+ 				if(params[4] == "trim_quotes")
+					trim_quotes = true;
+				else
+					bc::error_die("last parameter must be \"trim_quotes\" if you want to remove quotes from cells\"");
+			}
+
 			if(params[0] == "col") {
 				csvtool::ColCutter *t = new csvtool::ColCutter(indices);
 				t->set_input(input);
 				t->set_output(output);
+				t->set_trim_quotes(trim_quotes);
 				return t;
 
 			} else {
@@ -1396,6 +1506,9 @@ csvtool::Tool* ToolFactory(int argc,char **argv)
 				int index = atoi(params[2].c_str());
 				int insert_cnt = atoi(params[3].c_str());
 
+				std::string ifname = params[params.size()-1];
+				csvtool::Input *input = new csvtool::Input(ifname,delim); // MALLOC HERE
+
 				csvtool::InsertCol *t = new csvtool::InsertCol(index,insert_cnt);
 				t->set_input(input);
 				t->set_output(output);
@@ -1413,6 +1526,9 @@ csvtool::Tool* ToolFactory(int argc,char **argv)
 				int insert_cnt = atoi(params[3].c_str());
 				int col_cnt = atoi(params[4].c_str());
 
+				std::string ifname = params[params.size()-1];
+				csvtool::Input *input = new csvtool::Input(ifname,delim); // MALLOC HERE
+
 				csvtool::InsertRow *t = new csvtool::InsertRow(index,insert_cnt,col_cnt);
 				t->set_input(input);
 				t->set_output(output);
@@ -1429,6 +1545,9 @@ csvtool::Tool* ToolFactory(int argc,char **argv)
 			for(int j=0;j<toks.size();++j) {
 				indices.push_back(HeaderIndex(toks[j]));
 			}
+
+			std::string ifname = params[params.size()-1];
+			csvtool::Input *input = new csvtool::Input(ifname,delim); // MALLOC HERE
 
 			if(params[0] == "col") {
 				csvtool::FindUniqueColValues *t = new csvtool::FindUniqueColValues(indices);
@@ -1459,6 +1578,9 @@ DDDD
 */
 			std::string sqlcmd = params[2];
 
+			std::string ifname = params[params.size()-1];
+			csvtool::Input *input = new csvtool::Input(ifname,delim); // MALLOC HERE
+
 			if(params[0] == "col") {
 				csvtool::SqlCol *t = new csvtool::SqlCol(sqlcmd);
 				t->set_input(input);
@@ -1487,6 +1609,9 @@ DDDD
 				indices.push_back(HeaderIndex(toks[j]));
 			}
 
+			std::string ifname = params[params.size()-1];
+			csvtool::Input *input = new csvtool::Input(ifname,delim); // MALLOC HERE
+
 			if(params[0] == "col") {
 				csvtool::RmCol *t = new csvtool::RmCol(indices);
 				t->set_input(input);
@@ -1510,6 +1635,9 @@ DDDD
 
 			int src_index = atoi(params[2].c_str());
 			int dst_index = atoi(params[3].c_str());
+
+			std::string ifname = params[params.size()-1];
+			csvtool::Input *input = new csvtool::Input(ifname,delim); // MALLOC HERE
 
 			if(params[0] == "col") {
 				csvtool::MoveCol *t = new csvtool::MoveCol(src_index,dst_index);
@@ -1540,9 +1668,24 @@ DDDD
 		}
 
 		std::string ifname = params[params.size()-1];
-		csvtool::Input *input = new csvtool::Input(ifname); // MALLOC HERE
+		csvtool::Input *input = new csvtool::Input(ifname,delim); // MALLOC HERE
 
 		csvtool::RemoveEmptyCellAtRowEnd *t  = new csvtool::RemoveEmptyCellAtRowEnd();
+		t->set_input(input);
+		t->set_output(output);
+		return t;
+
+	} else if(params[0] == "rm_surrounding_quotes") {
+
+		if(params.size() != 2) {
+			std::cout << "not enough params here." << std::endl;
+			exit(1);
+		}
+
+		std::string ifname = params[params.size()-1];
+		csvtool::Input *input = new csvtool::Input(ifname,delim); // MALLOC HERE
+
+		csvtool::RemoveSurroundingQuotes *t  = new csvtool::RemoveSurroundingQuotes();
 		t->set_input(input);
 		t->set_output(output);
 		return t;
@@ -1557,7 +1700,7 @@ DDDD
 		}
 
 		std::string ifname = params[params.size()-1];
-		csvtool::Input *input = new csvtool::Input(ifname); // MALLOC HERE
+		csvtool::Input *input = new csvtool::Input(ifname,delim); // MALLOC HERE
 
 		csvtool::Transpose *t  = new csvtool::Transpose();
 		t->set_input(input);
@@ -1579,7 +1722,7 @@ DDDD
 
 		for(int j=2;j<params.size();++j) {
 			ifnames.push_back(params[j]);
-			inputs.push_back(new csvtool::Input(params[j])); // MALLOC HERE
+			inputs.push_back(new csvtool::Input(params[j],delim)); // MALLOC HERE
 		}
 
 		if(params[1]=="AnexttoB") {
@@ -1606,7 +1749,7 @@ DDDD
 		}
 
 		std::string ifname = params[1];
-		csvtool::Input *input = new csvtool::Input(ifname); // MALLOC HERE
+		csvtool::Input *input = new csvtool::Input(ifname,delim); // MALLOC HERE
 
 		csvtool::RotateRight *t  = new csvtool::RotateRight();
 		t->set_input(input);
@@ -1622,7 +1765,7 @@ DDDD
 		}
 
 		std::string ifname = params[1];
-		csvtool::Input *input = new csvtool::Input(ifname); // MALLOC HERE
+		csvtool::Input *input = new csvtool::Input(ifname,delim); // MALLOC HERE
 
 		csvtool::RotateLeft *t  = new csvtool::RotateLeft();
 		t->set_input(input);
@@ -1638,7 +1781,7 @@ DDDD
 		}
 
 		std::string ifname = params[1];
-		csvtool::Input *input = new csvtool::Input(ifname); // MALLOC HERE
+		csvtool::Input *input = new csvtool::Input(ifname,delim); // MALLOC HERE
 
 		csvtool::IsSquare *t  = new csvtool::IsSquare();
 		t->set_input(input);

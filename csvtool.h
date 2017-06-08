@@ -48,7 +48,7 @@ class Output
 class Input
 {
 	public:
-	Input(const std::string &ifname);
+	Input(const std::string &ifname,const std::string &delim);
 
 	// returns false when we are done with input
 	bool get_next_row(std::vector<std::string> &cells);
@@ -117,8 +117,9 @@ class ColCutter : public SimpleFileTool
 	public:
 	ColCutter(const std::vector<HeaderIndex> &indices);
 	void operate_on_input(Input &input,Output &output);
+	void set_trim_quotes(bool trim_quotes);
 	private:
-
+	bool _trim_quotes;
 	std::vector<HeaderIndex> _indices;
 };
 
@@ -218,6 +219,15 @@ class RemoveEmptyCellAtRowEnd: public SimpleFileTool
 	void operate_on_input(Input &input,Output &output);
 	private:
 };
+
+class RemoveSurroundingQuotes: public SimpleFileTool
+{
+	public:
+	RemoveSurroundingQuotes();
+	void operate_on_input(Input &input,Output &output);
+	private:
+};
+
 
 class JoinAnexttoB: public SimpleFileTool
 {

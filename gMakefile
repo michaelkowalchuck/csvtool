@@ -2,8 +2,11 @@
 
 DEFINES=
 LIBDIR=
-LIBS=`basecode-config --cclibs`
-INCLUDE=`basecode-config --ccflags`
+#LIBS=`basecode-config --cclibs`
+#INCLUDE=`basecode-config --ccflags`
+
+LIBS=-L/home/mike/code/basecode/CPP -lbc_cc
+INCLUDE=-I/home/mike/code/basecode/CPP
 
 
 
@@ -27,9 +30,10 @@ else
 	CXX:=gfilt /cand:L -banner:N
 endif
 
+#TODO gfilt breaks Stuff!!!
+CXX:=g++
 
 TARGET=csvtool
-
 TARGETS=csvtool
 
 RELEASE=
@@ -44,6 +48,9 @@ endif
 ifeq ($(O),1)
 	RELEASE:=-O
 endif
+
+#TODO
+RELEASE:=-ggdb3
 
 CCFLAGS=$(RELEASE)
 CFLAGS=$(RELEASE)
